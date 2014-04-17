@@ -11,7 +11,7 @@ lib/libimagequant.a::
 $(BIN): $(OBJS) lib/libimagequant.a
 	$(CC) $(OBJS) $(LDFLAGS) -o $@
 
-$(OBJS): rwpng.h config.mk
+$(OBJS): rwpng.h
 
 clean:
 	rm -f $(BIN) $(OBJS)

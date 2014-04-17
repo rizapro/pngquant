@@ -146,7 +146,7 @@ if [ -n "$LIBPNG_DIR" ]; then
         error "libpng"
     fi
 else
-    if [ "$(pkg-config --exists libpng; echo $?)" == 0 ]; then
+    if pkg-config --exists libpng; then
         cflags "$(pkg-config --cflags libpng)"
         lflags "$(pkg-config --libs libpng)"
         status "libpng" "$(pkg-config --modversion libpng)"
@@ -156,7 +156,7 @@ else
 fi
 
 # zlib
-if [ "$(pkg-config --exists zlib; echo $?)" == 0 ]; then
+if pkg-config --exists zlib; then
     cflags "$(pkg-config --cflags zlib)"
     lflags "-lm $(pkg-config --libs zlib)"
     status "zlib" "$(pkg-config --modversion zlib)"
@@ -166,7 +166,7 @@ fi
 
 # lcms2
 if [ -n "$LCMS2" ]; then
-    if [ "$(pkg-config --exists lcms2; echo $?)" == 0 ]; then
+    if pkg-config --exists lcms2; then
         cflags "$(pkg-config --cflags lcms2)"
         lflags "$(pkg-config --libs lcms2)"
         status "lcms2" "$(pkg-config --modversion lcms2)"

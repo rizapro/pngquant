@@ -14,8 +14,11 @@ $(BIN): $(OBJS) lib/libimagequant.a
 $(OBJS): rwpng.h
 
 clean:
-	rm -f $(BIN) $(OBJS)
+	rm -f $(BIN) $(OBJS) config.mk
 	$(MAKE) -C lib clean
+
+config.mk:
+	./configure
 
 .PHONY: all clean
 .DELETE_ON_ERROR:

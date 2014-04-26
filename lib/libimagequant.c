@@ -116,7 +116,7 @@ struct liq_result {
 static liq_result *pngquant_quantize(histogram *hist, const liq_attr *options, double gamma);
 static void modify_alpha(liq_image *input_image, rgba_pixel *const row_pixels);
 static void contrast_maps(liq_image *image);
-static histogram *get_histogram(liq_image *input_image, liq_attr *options);
+static histogram *get_histogram(liq_image *input_image, const liq_attr *options);
 static const rgba_pixel *liq_image_get_row_rgba(liq_image *input_image, unsigned int row);
 static const f_pixel *liq_image_get_row_f(liq_image *input_image, unsigned int row);
 static void liq_remapping_result_destroy(liq_remapping_result *result);
@@ -236,13 +236,13 @@ LIQ_EXPORT liq_error liq_set_quality(liq_attr* attr, int minimum, int target)
     return LIQ_OK;
 }
 
-LIQ_EXPORT int liq_get_min_quality(liq_attr *attr)
+LIQ_EXPORT int liq_get_min_quality(const liq_attr *attr)
 {
     if (!CHECK_STRUCT_TYPE(attr, liq_attr)) return -1;
     return mse_to_quality(attr->max_mse);
 }
 
-LIQ_EXPORT int liq_get_max_quality(liq_attr *attr)
+LIQ_EXPORT int liq_get_max_quality(const liq_attr *attr)
 {
     if (!CHECK_STRUCT_TYPE(attr, liq_attr)) return -1;
     return mse_to_quality(attr->target_mse);
@@ -258,7 +258,7 @@ LIQ_EXPORT liq_error liq_set_max_colors(liq_attr* attr, int colors)
     return LIQ_OK;
 }
 
-LIQ_EXPORT int liq_get_max_colors(liq_attr *attr)
+LIQ_EXPORT int liq_get_max_colors(const liq_attr *attr)
 {
     if (!CHECK_STRUCT_TYPE(attr, liq_attr)) return -1;
 
@@ -274,7 +274,7 @@ LIQ_EXPORT liq_error liq_set_min_posterization(liq_attr *attr, int bits)
     return LIQ_OK;
 }
 
-LIQ_EXPORT int liq_get_min_posterization(liq_attr *attr)
+LIQ_EXPORT int liq_get_min_posterization(const liq_attr *attr)
 {
     if (!CHECK_STRUCT_TYPE(attr, liq_attr)) return -1;
 
@@ -300,7 +300,7 @@ LIQ_EXPORT liq_error liq_set_speed(liq_attr* attr, int speed)
     return LIQ_OK;
 }
 
-LIQ_EXPORT int liq_get_speed(liq_attr *attr)
+LIQ_EXPORT int liq_get_speed(const liq_attr *attr)
 {
     if (!CHECK_STRUCT_TYPE(attr, liq_attr)) return -1;
 
@@ -330,7 +330,7 @@ LIQ_EXPORT liq_error liq_set_min_opacity(liq_attr* attr, int min)
     return LIQ_OK;
 }
 
-LIQ_EXPORT int liq_get_min_opacity(liq_attr *attr)
+LIQ_EXPORT int liq_get_min_opacity(const liq_attr *attr)
 {
     if (!CHECK_STRUCT_TYPE(attr, liq_attr)) return -1;
 
@@ -1168,7 +1168,7 @@ static void remap_to_palette_floyd(liq_image *input_image, unsigned char *const 
 
 
 /* histogram contains information how many times each color is present in the image, weighted by importance_map */
-static histogram *get_histogram(liq_image *input_image, liq_attr *options)
+static histogram *get_histogram(liq_image *input_image, const liq_attr *options)
 {
     unsigned int ignorebits=MAX(options->min_posterization_output, options->min_posterization_input);
     const unsigned int cols = input_image->width, rows = input_image->height;
@@ -1211,10 +1211,6 @@ static histogram *get_histogram(liq_image *input_image, liq_attr *options)
             }
         }
     } while(!acht);
-
-    if (ignorebits > 0) {
-        options->fast_palette = true; // no point having perfect match with imperfect colors. Also mismatch slows down search.
-    }
 
     if (input_image->noise) {
         input_image->free(input_image->noise);
@@ -1483,6 +1479,9 @@ static liq_result *pngquant_quantize(histogram *hist, const liq_attr *options, c
     colormap *acolormap;
     double palette_error = -1;
 
+    // no point having perfect match with imperfect colors (ignorebits > 0)
+    const bool fast_palette = options->fast_palette || hist->ignorebits > 0;
+
     // If image has few colors to begin with (and no quality degradation is required)
     // then it's possible to skip quantization entirely
     if (hist->size <= options->max_colors && options->target_mse == 0) {
@@ -1545,7 +1544,7 @@ static liq_result *pngquant_quantize(histogram *hist, const liq_attr *options, c
         .free = options->free,
         .palette = acolormap,
         .palette_error = palette_error,
-        .fast_palette = options->fast_palette,
+        .fast_palette = fast_palette,
         .use_dither_map = options->use_dither_map,
         .gamma = gamma,
         .min_posterization_output = options->min_posterization_output,

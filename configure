@@ -34,7 +34,7 @@ if [[ "$OSTYPE" =~ "darwin" ]]; then
         help "--with-cocoa                  use Cocoa framework to read files"
 fi
         echo
-        help "--libquant-only               skip libpng and zlib checks"
+        help "--libquant-only               build libquant library only"
         echo
         exit 0
         ;;

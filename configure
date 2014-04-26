@@ -8,7 +8,7 @@ DEBUG=
 SSE=
 OPENMP=
 LCMS2=
-COCOA=
+COCOA_READER=
 LIB_ONLY=
 EXTRA_CFLAGS=
 EXTRA_LDFLAGS=
@@ -29,7 +29,7 @@ for i in "$@"; do
         help "--enable-sse/--disable-sse    enable/disable SSE instructions"
         echo
         help "--with-openmp                 compile with multicore support"
-        help "--with-lcms2                  compile with color profiles support"
+        help "--with-lcms2                  compile with color profile support"
 if [[ "$OSTYPE" =~ "darwin" ]]; then
         help "--with-cocoa                  use Cocoa framework to read files"
 fi
@@ -58,7 +58,7 @@ fi
         LCMS2=1
         ;;
     --with-cocoa)
-        COCOA=1
+        COCOA_READER=1
         ;;
     --libquant-only)
         LIB_ONLY=1
@@ -138,7 +138,7 @@ if [ -z "$CC" ]; then
 fi
 
 # basic check
-if ! $CC -x c -std=c99 <(echo "int main(){}") -o /dev/null &> /dev/null; then
+if ! $CC -xc -std=c99 <(echo "int main(){}") -o /dev/null &> /dev/null; then
     status "Compiler" "error ... $CC is no C compiler"
     echo
     exit 1

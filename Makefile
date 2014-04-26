@@ -6,7 +6,7 @@ BINPREFIX = $(PREFIX)/bin
 OBJS = pngquant.o rwpng.o
 COCOA_OBJS = rwpng_cocoa.o
 
-ifdef COCOA
+ifdef COCOA_READER
 OBJS += $(COCOA_OBJS)
 endif
 

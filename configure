@@ -1,36 +1,47 @@
 #!/bin/bash
 
-echo
-
 CONFIG="config.mk"
-# PREFIX="/usr/local"
-# VERSION=$(grep "define PNGQUANT_VERSION" pngquant.c | grep -Eo "[12]\.[0-9.]*")
+PREFIX="/usr/local"
+VERSION=$(grep "define PNGQUANT_VERSION" pngquant.c | grep -Eo "[12]\.[0-9.]+")
 
-HELP=
 DEBUG=
 SSE=
 OPENMP=
 LCMS2=
-CFLAGS=
-LDFLAGS=
+COCOA=
+LIB_ONLY=
 EXTRA_CFLAGS=
 EXTRA_LDFLAGS=
-LIBPNG_DIR=
+
+help() {
+    printf "%4s %s\n" "" "$1"
+}
 
 for i in "$@"; do
     case $i in
-    -h|--help)
-        HELP=1
-        break
+    --help)
+        echo
+        help "--prefix=                     installation directory [$PREFIX]"
+        help "--extra-cflags=               append to CFLAGS"
+        help "--extra-ldflags=              append to LDFLAGS"
+        echo
+        help "--enable-debug"
+        help "--enable-sse/--disable-sse    enable/disable SSE instructions"
+        echo
+        help "--with-openmp                 compile with multicore support"
+        help "--with-lcms2                  compile with color profiles support"
+if [[ "$OSTYPE" =~ "darwin" ]]; then
+        help "--with-cocoa                  use Cocoa framework to read files"
+fi
+        echo
+        help "--libquant-only               skip libpng and zlib checks"
+        echo
+        exit 0
         ;;
-    # overrides environment variable
+    # Can be set before or after configure. Latter overrides former.
     CC=*)
         CC=${i#*=}
         ;;
-    # installation directory
-    # --prefix=*)
-    #     PREFIX=${i#*=}
-    #     ;;
     --enable-debug)
         DEBUG=1
         ;;
@@ -46,19 +57,35 @@ for i in "$@"; do
     --with-lcms2)
         LCMS2=1
         ;;
-    # append to CFLAGS
+    --with-cocoa)
+        COCOA=1
+        ;;
+    --libquant-only)
+        LIB_ONLY=1
+        ;;
+    --prefix=*)
+        PREFIX=${i#*=}
+        ;;
+    # can be used multiple times or in quotes to set multiple flags
     --extra-cflags=*)
-        EXTRA_CFLAGS=${i#*=}
+        EXTRA_CFLAGS="$EXTRA_CFLAGS ${i#*=}"
         ;;
-    # append to LDFLAGS
     --extra-ldflags=*)
-        EXTRA_LDFLAGS=${i#*=}
+        EXTRA_LDFLAGS="$EXTRA_LDFLAG ${i#*=}"
         ;;
-    --libpng-dir=*)
-        LIBPNG_DIR=${i#*=}
+    *)
+        echo "error: unknown switch ${i%%=*}"
+        exit 1
         ;;
     esac
 done
+
+# If someone runs sudo make install as very first command, and configure later,
+# $CONFIG cannot be overwritten, and must to be deleted before continuing.
+if [[ -f "$CONFIG" && ! -w "$CONFIG" ]]; then
+    echo "Cannot overwrite file $CONFIG! Please delete it."
+    exit 1
+fi
 
 cflags() {
     CFLAGS="$CFLAGS $1"
@@ -69,113 +96,283 @@ lflags() {
 }
 
 status() {
-    printf "%20s: %s\n" "$1" "$2"
+    printf "%12s: %s\n" "$1" "$2"
 }
 
-error() {
-    status "$1" "ERROR"
-    echo
-    exit 1
-}
-
-# append to CFLAGS if compiler supports switch
-compiler_supports() {
-    if [ -z "$(echo | $CC $1 -E -o /dev/null - 2>&1)" ]; then
+# Append to CFLAGS if compiler supports flag, with optional prerequisite.
+# Fails on errors and warnings.
+conditional_cflags() {
+    if [ -z "$($CC -xc -S -o /dev/null $2 $1 <(echo) 2>&1)" ]; then
         cflags "$1"
     fi
 }
 
-# help
-if [ -n "$HELP" ]; then
-    echo
-    exit 0
-fi
+# returns first matching file in directory
+find_f() {
+    echo $(find "$1" -not -type d -name "$2" -print -quit 2> /dev/null)
+}
+
+# returns first matching file in directory (no symlinks)
+find_h() {
+    echo $(find "$1" -type f -name "$2" -print -quit 2> /dev/null)
+}
+
+# returns full png.h version string
+pngh_string() {
+    echo "$(grep -m1 "define PNG_LIBPNG_VER_STRING" $1 | \
+            grep -Eo '"[^"]+"' | grep -Eo '[^"]+')"
+}
+
+# returns major minor version numbers from png.h
+pngh_majmin() {
+    local MAJ=$(grep -m1 "define PNG_LIBPNG_VER_MAJOR" $1 | grep -Eo "[0-9]+")
+    local MIN=$(grep -m1 "define PNG_LIBPNG_VER_MINOR" $1 | grep -Eo "[0-9]+")
+    echo "${MAJ}${MIN}"
+}
+
+echo
 
 # make gcc default compiler unless CC is already set
 if [ -z "$CC" ]; then
     CC=gcc
 fi
-status "compiler" "$CC"
 
-# init flags
-cflags "-std=c99 -O3 -funroll-loops -fomit-frame-pointer"
-cflags "-Wall -Wno-unknown-pragmas -I."
-lflags "-lm lib/libimagequant.a"
-
-# debug
-if [ -z "$DEBUG" ]; then
-    cflags "-DNDEBUG"
-    status "debug" "no"
-else
-    status "debug" "yes"
+# basic check
+if ! $CC -x c -std=c99 <(echo "int main(){}") -o /dev/null &> /dev/null; then
+    status "Compiler" "error ... $CC is no C compiler"
+    echo
+    exit 1
 fi
 
-# sse
+status "Compiler" "$CC"
+
+# init flags
+CFLAGS="-std=c99 -O3 -fno-math-errno -funroll-loops -fomit-frame-pointer -Wall -Wno-unknown-pragmas -I."
+LDFLAGS="-lm lib/libimagequant.a"
+
+# DEBUG
+if [ -z "$DEBUG" ]; then
+    cflags "-DNDEBUG"
+    status "Debug" "no"
+else
+    status "Debug" "yes"
+fi
+
+echo
+
+# SSE
 if [ -n "$SSE" ]; then
     cflags "-DUSE_SSE=$SSE"
-    if [ "$SSE" == 1 ]; then
-        # must be set explicitly for GCC on x86_32
-        compiler_supports "-msse -mfpmath=sse"
+    if [ "$SSE" -eq 1 ]; then
+        cflags "-msse"
+        # Silence a later ICC warning due to -msse working slightly different.
+        conditional_cflags "-wd10121"
+        # Must be set explicitly for GCC on x86_32. Other compilers imply it.
+        conditional_cflags "-mfpmath=sse" "-msse"
         status "SSE" "yes"
     else
         status "SSE" "no"
     fi
 else
-    status "SSE" "auto"
+    if [[ "$(uname -m)" =~ "x86_64" ]]; then
+        cflags "-DUSE_SSE=1"
+        status "SSE" "auto (yes)"
+    else
+        cflags "-DUSE_SSE=0"
+        status "SSE" "auto (no)"
+    fi
 fi
 
-# openmp
+# OpenMP
 if [ -n "$OPENMP" ]; then
     cflags "-fopenmp"
     lflags "-fopenmp"
     status "OpenMP" "yes"
 else
-    # ICC only: disables omp pragma warnings when -fopenmp is not set
-    compiler_supports "-wd3180"
+    # Silence ICC warnings about omp pragmas when -fopenmp is not set.
+    conditional_cflags "-wd3180"
     status "OpenMP" "no"
 fi
 
-# libpng
-if [ -n "$LIBPNG_DIR" ]; then
-    PNG_STATIC=$(find $LIBPNG_DIR -type f -name libpng\*.a 2>/dev/null)
-    if [ -n "$PNG_STATIC" ]; then
-        cflags "-I$LIBPNG_DIR"
-        lflags "$PNG_STATIC"
-        status "libpng" "$LIBPNG_DIR"
+if [ -z "$LIB_ONLY" ]; then
+
+# Cocoa
+if [[ "$OSTYPE" =~ "darwin" ]]; then
+    if [ -n "$COCOA" ]; then
+        cflags "-mmacosx-version-min=10.6 -framework Cocoa -DUSE_COCOA=1"
+        lflags "-mmacosx-version-min=10.6"
+        status "Cocoa" "yes"
     else
-        error "libpng"
-    fi
-else
-    if pkg-config --exists libpng; then
-        cflags "$(pkg-config --cflags libpng)"
-        lflags "$(pkg-config --libs libpng)"
-        status "libpng" "$(pkg-config --modversion libpng)"
-    else
-        error "libpng"
+        status "Cocoa" "no"
     fi
 fi
 
+echo
+
+# libpng
+SUCCESS=0
+# try static in current directory first
+PNGH=$(find_h "" "png.h")
+if [ -n "$PNGH" ]; then
+    PNGH_STRING=$(pngh_string "$PNGH")
+    PNGH_MAJMIN=$(pngh_majmin "$PNGH")
+    if [ -n "$PNGH_STRING" -a -n "$PNGH_MAJMIN" ]; then
+        LIBPNGA=$(find_f "" "libpng${PNGH_MAJMIN}.a")
+        if [ -n "$LIBPNGA" ]; then
+            cflags "-I${PNGH%/*}"
+            lflags "${LIBPNGA}"
+            status "libpng" "static (${PNGH_STRING})"
+            SUCCESS=1
+        fi
+    fi
+fi
+# try shared
+if [ "$SUCCESS" -eq 0 ]; then
+    if pkg-config --exists libpng &> /dev/null; then
+        cflags "$(pkg-config --cflags libpng)"
+        lflags "$(pkg-config --libs libpng)"
+        status "libpng" "shared ($(pkg-config --modversion libpng))"
+        SUCCESS=1
+    else
+        # pairs of possible png.h and libpng.so locations
+        DIRS=("/usr/local/include/ /usr/local/lib/" 
+              "/usr/include/ /usr/lib/")
+        for i in "${DIRS[@]}"; do
+            DIR=($i)
+            PNGH=$(find_h "${DIR[0]}" "png.h")
+            if [ -n "$PNGH" ]; then
+                PNGH_STRING=$(pngh_string "$PNGH")
+                PNGH_MAJMIN=$(pngh_majmin "$PNGH")
+                if [ -n "$PNGH_STRING" -a -n "$PNGH_MAJMIN" ]; then
+                    LIBPNGSO=$(find_f "${DIR[1]}" "libpng${PNGH_MAJMIN}.so*")
+                    if [ -n "$LIBPNGSO" ]; then
+                        cflags "-I${PNGH%/*}"
+                        lflags "-L${LIBPNGSO%/*} -lpng${PNGH_MAJMIN}"
+                        status "libpng" "shared (${PNGH_STRING})"
+                        SUCCESS=1
+                        break
+                    fi
+                fi
+            fi
+        done
+    fi
+fi
+if [ "$SUCCESS" -eq 0 ]; then
+    status "libpng" "error ... not found"
+    echo
+    exit 1
+fi
+
 # zlib
-if pkg-config --exists zlib; then
-    cflags "$(pkg-config --cflags zlib)"
-    lflags "-lm $(pkg-config --libs zlib)"
-    status "zlib" "$(pkg-config --modversion zlib)"
-else
-        error "zlib"
+SUCCESS=0
+# try static in current directory first
+ZLIBH=$(find_h "" "zlib.h")
+if [ -n "$ZLIBH" ]; then
+    LIBZA=$(find_f "" "libz.a")
+    if [ -n "$LIBZA" ]; then
+        cflags "-I${ZLIBH%/*}"
+        lflags "${LIBZA}"
+        status "zlib" "static"
+        SUCCESS=1
+    fi
+fi
+# try shared
+if [ "$SUCCESS" -eq 0 ]; then
+    if pkg-config --exists zlib &> /dev/null; then
+        cflags "$(pkg-config --cflags zlib)"
+        lflags "$(pkg-config --libs zlib)"
+        status "zlib" "shared ($(pkg-config --modversion zlib))"
+        SUCCESS=1
+    else
+        # pairs of possible zlib.h and libz.so locations
+        DIRS=("/usr/local/include/ /usr/local/lib/" 
+              "/usr/include/ /usr/lib/")
+        for i in "${DIRS[@]}"; do
+            DIR=($i)
+            ZLIBH=$(find_h "${DIR[0]}" "zlib.h")
+            if [ -n "$ZLIBH" ]; then
+                LIBZSO=$(find_f "${DIR[1]}" "libz.so*")
+                if [ -n "$LIBZSO" ]; then
+                    cflags "-I${ZLIBH%/*}"
+                    lflags "-L${LIBZSO%/*} -lz"
+                    status "zlib" "shared"
+                    SUCCESS=1
+                fi
+            fi
+        done
+    fi
+fi
+if [ "$SUCCESS" -eq 0 ]; then
+    status "zlib" "error ... not found"
+    echo
+    exit 1
 fi
 
 # lcms2
 if [ -n "$LCMS2" ]; then
-    if pkg-config --exists lcms2; then
-        cflags "$(pkg-config --cflags lcms2)"
-        lflags "$(pkg-config --libs lcms2)"
-        status "lcms2" "$(pkg-config --modversion lcms2)"
+    SUCCESS=0
+    # try static in current directory first
+    LCMS2H=$(find_h "" "lcms2.h")
+    if [ -n "$LCMS2H" ]; then
+        LIBLCMS2A=$(find_f "" "liblcms2.a")
+        if [ -n "$LIBLCMS2A" ]; then
+            cflags "-I${LCMS2H%/*}"
+            lflags "${LIBLCMS2A}"
+            status "lcms2" "static"
+            SUCCESS=1
+        fi
+    fi
+    # try shared
+    if [ "$SUCCESS" -eq 0 ]; then
+        if pkg-config --exists lcms2 &> /dev/null; then
+            cflags "$(pkg-config --cflags lcms2)"
+            lflags "$(pkg-config --libs lcms2)"
+            status "lcms2" "shared ($(pkg-config --modversion lcms2))"
+            SUCCESS=1
+        else
+            # pairs of possible lcms2.h and liblcms2.so locations
+            DIRS=("/usr/local/include/ /usr/local/lib/" 
+                  "/usr/include/ /usr/lib/")
+            for i in "${DIRS[@]}"; do
+                DIR=($i)
+                LCMS2H=$(find_h "${DIR[0]}" "lcms2.h")
+                if [ -n "$LCMS2H" ]; then
+                    LIBLCMS2SO=$(find_f "${DIR[1]}" "liblcms2.so*")
+                    if [ -n "$LIBLCMS2SO" ]; then
+                        cflags "-I${LCMS2H%/*}"
+                        lflags "-L${LIBLCMS2SO%/*} -llcms2"
+                        status "lcms2" "shared"
+                        SUCCESS=1
+                    fi
+                fi
+            done
+        fi
+    fi
+    if [ "$SUCCESS" -eq 0 ]; then
+        status "lcms2" "error ... not found"
+        echo
+        exit 1
     else
-        error "lcms2"
+        cflags "-DUSE_LCMS=1"
     fi
 else
     status "lcms2" "no"
 fi
+
+fi # LIB_ONLY
+
+# As of GCC 4.5, 387 fp math is significantly slower in C99 mode without this.
+conditional_cflags "-fexcess-precision=fast"
+
+# Intel C++ Compiler
+# This flag is technically equivalent to -march=native for GCC, but has a more
+# profound effect. With ICC, code is highly optimized for a specific target
+# (Intel) CPU, and generic code can be quite slow, so this flag is essential.
+conditional_cflags "-xHOST"
+# Disables some fp optimizations and enforces fp precision as set in the code.
+conditional_cflags "-fp-model source"
+# Silence a gold linker warning about string misalignment.
+conditional_cflags "-falign-stack=maintain-16-byte"
 
 if [ -n "$EXTRA_CFLAGS" ]; then
     cflags "$EXTRA_CFLAGS"
@@ -185,17 +382,13 @@ if [ -n "$EXTRA_LDFLAGS" ]; then
     lflags "$EXTRA_LDFLAGS"
 fi
 
-# as of GCC 4.5 floating point math is slow in C99, unless this is set
-compiler_supports "-fexcess-precision=fast"
-
-# ICC
-compiler_supports "-xHOST -fp-model source"
-
-# write file
+# Overwrite previous configuration.
 echo "# auto-generated by configure" > $CONFIG
-echo >> $CONFIG
-echo "CC=$CC" >> $CONFIG
-echo "CFLAGS=$CFLAGS" >> $CONFIG
-echo "LDFLAGS=$LDFLAGS" >> $CONFIG
+echo "PREFIX = $PREFIX" >> $CONFIG
+echo "VERSION = $VERSION" >> $CONFIG
+echo "LIB_ONLY = $LIB_ONLY" >> $CONFIG
+echo "CC = $CC" >> $CONFIG
+echo "CFLAGS = $CFLAGS" >> $CONFIG
+echo "LDFLAGS = $LDFLAGS" >> $CONFIG
 
 echo

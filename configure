@@ -230,6 +230,7 @@ if [ -z "$DEBUG" ]; then
     cflags "-DNDEBUG"
     status "Debug" "no"
 else
+    cflags "-g"
     status "Debug" "yes"
 fi
 

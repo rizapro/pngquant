@@ -8,7 +8,7 @@ DEBUG=
 SSE=
 OPENMP=
 LCMS2=
-COCOA=
+COCOA_READER=
 LIBQ_ONLY=
 EXTRA_CFLAGS=
 EXTRA_LDFLAGS=
@@ -58,7 +58,7 @@ fi
         LCMS2=1
         ;;
     --with-cocoa)
-        COCOA=1
+        COCOA_READER=1
         ;;
     --libquant-only)
         LIBQ_ONLY=1
@@ -212,7 +212,7 @@ if [ -z "$LIBQ_ONLY" ]; then
 
 # Cocoa
 if [[ "$OSTYPE" =~ "darwin" ]]; then
-    if [ -n "$COCOA" ]; then
+    if [ -n "$COCOA_READER" ]; then
         cflags "-mmacosx-version-min=10.6 -framework Cocoa -DUSE_COCOA=1"
         lflags "-mmacosx-version-min=10.6"
         status "Cocoa" "yes"
@@ -404,5 +404,5 @@ echo "CC = $CC" >> $CONFIG
 echo "CFLAGS = $CFLAGS" >> $CONFIG
 echo "LDFLAGS = $LDFLAGS" >> $CONFIG
 echo "LIBQ_ONLY = $LIBQ_ONLY" >> $CONFIG
-echo "COCOA_READER = $COCOA" >> $CONFIG
+echo "COCOA_READER = $COCOA_READER" >> $CONFIG
 echo

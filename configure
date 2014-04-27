@@ -157,6 +157,10 @@ if ! "$CC" -xc -std=c99 <(echo "int main(){}") -o /dev/null &> /dev/null; then
     exit 1
 fi
 
+# pairs of possible *.h and lib*.so locations
+DIRS=("/usr/local/include /usr/local/lib"
+      "/usr/include /usr/lib")
+
 status "Compiler" "$CC"
 
 # init flags
@@ -254,9 +258,6 @@ if [ "$SUCCESS" -eq 0 ]; then
     if find_pkgconfig libpng; then
         SUCCESS=1
     else
-        # pairs of possible png.h and libpng.so locations
-        DIRS=("/usr/local/include/ /usr/local/lib/" 
-              "/usr/include/ /usr/lib/")
         for i in "${DIRS[@]}"; do
             DIR=($i)
             PNGH=$(find_h "${DIR[0]}" "png.h")
@@ -301,9 +302,6 @@ if [ "$SUCCESS" -eq 0 ]; then
     if find_pkgconfig zlib; then
         SUCCESS=1
     else
-        # pairs of possible zlib.h and libz.so locations
-        DIRS=("/usr/local/include/ /usr/local/lib/" 
-              "/usr/include/ /usr/lib/")
         for i in "${DIRS[@]}"; do
             DIR=($i)
             ZLIBH=$(find_h "${DIR[0]}" "zlib.h")
@@ -344,9 +342,6 @@ if [ -n "$LCMS2" ]; then
         if find_pkgconfig lcms2; then
             SUCCESS=1
         else
-            # pairs of possible lcms2.h and liblcms2.so locations
-            DIRS=("/usr/local/include/ /usr/local/lib/" 
-                  "/usr/include/ /usr/lib/")
             for i in "${DIRS[@]}"; do
                 DIR=($i)
                 LCMS2H=$(find_h "${DIR[0]}" "lcms2.h")

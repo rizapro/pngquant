@@ -79,8 +79,11 @@ uninstall:
 clean:
 	rm -f $(BIN) $(OBJS) $(COCOA_OBJS) $(STATICLIB) $(LIBOBJS) $(TARFILE) $(LIBTARFILE) $(DLL) $(DLLIMP) $(DLLDEF)
 
+distclean: clean
+	rm -rf config.mk
+
 config.mk:
 	./configure
 
-.PHONY: all clean dist libdist dll lib install uninstall
+.PHONY: all clean dist distclean libdist dll lib install uninstall
 .DELETE_ON_ERROR:

@@ -9,7 +9,7 @@ SSE=
 OPENMP=
 LCMS2=
 COCOA=
-LIB_ONLY=
+LIBQ_ONLY=
 EXTRA_CFLAGS=
 EXTRA_LDFLAGS=
 
@@ -61,7 +61,7 @@ fi
         COCOA=1
         ;;
     --libquant-only)
-        LIB_ONLY=1
+        LIBQ_ONLY=1
         ;;
     --prefix=*)
         PREFIX=${i#*=}
@@ -102,7 +102,7 @@ status() {
 # Append to CFLAGS if compiler supports flag, with optional prerequisite.
 # Fails on errors and warnings.
 conditional_cflags() {
-    if [ -z "$($CC -xc -S -o /dev/null $2 $1 <(echo) 2>&1)" ]; then
+    if [ -z "$("$CC" -xc -S -o /dev/null $2 $1 <(echo) 2>&1)" ]; then
         cflags "$1"
     fi
 }
@@ -119,14 +119,14 @@ find_h() {
 
 # returns full png.h version string
 pngh_string() {
-    echo "$(grep -m1 "define PNG_LIBPNG_VER_STRING" $1 | \
+    echo "$(grep -m1 "define PNG_LIBPNG_VER_STRING" "$1" | \
             grep -Eo '"[^"]+"' | grep -Eo '[^"]+')"
 }
 
 # returns major minor version numbers from png.h
 pngh_majmin() {
-    local MAJ=$(grep -m1 "define PNG_LIBPNG_VER_MAJOR" $1 | grep -Eo "[0-9]+")
-    local MIN=$(grep -m1 "define PNG_LIBPNG_VER_MINOR" $1 | grep -Eo "[0-9]+")
+    local MAJ=$(grep -m1 "define PNG_LIBPNG_VER_MAJOR" "$1" | grep -Eo "[0-9]+")
+    local MIN=$(grep -m1 "define PNG_LIBPNG_VER_MINOR" "$1" | grep -Eo "[0-9]+")
     echo "${MAJ}${MIN}"
 }
 
@@ -138,7 +138,7 @@ if [ -z "$CC" ]; then
 fi
 
 # basic check
-if ! $CC -xc -std=c99 <(echo "int main(){}") -o /dev/null &> /dev/null; then
+if ! "$CC" -xc -std=c99 <(echo "int main(){}") -o /dev/null &> /dev/null; then
     status "Compiler" "error ... $CC is no C compiler"
     echo
     exit 1
@@ -194,7 +194,7 @@ else
     status "OpenMP" "no"
 fi
 
-if [ -z "$LIB_ONLY" ]; then
+if [ -z "$LIBQ_ONLY" ]; then
 
 # Cocoa
 if [[ "$OSTYPE" =~ "darwin" ]]; then
@@ -212,12 +212,12 @@ echo
 # libpng
 SUCCESS=0
 # try static in current directory first
-PNGH=$(find_h "" "png.h")
+PNGH=$(find_h "." "png.h")
 if [ -n "$PNGH" ]; then
     PNGH_STRING=$(pngh_string "$PNGH")
     PNGH_MAJMIN=$(pngh_majmin "$PNGH")
     if [ -n "$PNGH_STRING" -a -n "$PNGH_MAJMIN" ]; then
-        LIBPNGA=$(find_f "" "libpng${PNGH_MAJMIN}.a")
+        LIBPNGA=$(find_f "." "libpng${PNGH_MAJMIN}.a")
         if [ -n "$LIBPNGA" ]; then
             cflags "-I${PNGH%/*}"
             lflags "${LIBPNGA}"
@@ -266,9 +266,9 @@ fi
 # zlib
 SUCCESS=0
 # try static in current directory first
-ZLIBH=$(find_h "" "zlib.h")
+ZLIBH=$(find_h "." "zlib.h")
 if [ -n "$ZLIBH" ]; then
-    LIBZA=$(find_f "" "libz.a")
+    LIBZA=$(find_f "." "libz.a")
     if [ -n "$LIBZA" ]; then
         cflags "-I${ZLIBH%/*}"
         lflags "${LIBZA}"
@@ -312,9 +312,9 @@ fi
 if [ -n "$LCMS2" ]; then
     SUCCESS=0
     # try static in current directory first
-    LCMS2H=$(find_h "" "lcms2.h")
+    LCMS2H=$(find_h "." "lcms2.h")
     if [ -n "$LCMS2H" ]; then
-        LIBLCMS2A=$(find_f "" "liblcms2.a")
+        LIBLCMS2A=$(find_f "." "liblcms2.a")
         if [ -n "$LIBLCMS2A" ]; then
             cflags "-I${LCMS2H%/*}"
             lflags "${LIBLCMS2A}"
@@ -359,7 +359,7 @@ else
     status "lcms2" "no"
 fi
 
-fi # LIB_ONLY
+fi # LIBQ_ONLY
 
 # As of GCC 4.5, 387 fp math is significantly slower in C99 mode without this.
 conditional_cflags "-fexcess-precision=fast"
@@ -389,9 +389,6 @@ echo "VERSION = $VERSION" >> $CONFIG
 echo "CC = $CC" >> $CONFIG
 echo "CFLAGS = $CFLAGS" >> $CONFIG
 echo "LDFLAGS = $LDFLAGS" >> $CONFIG
-echo "LIB_ONLY = $LIB_ONLY" >> $CONFIG
-if [[ "$OSTYPE" =~ "darwin" ]]; then
+echo "LIBQ_ONLY = $LIBQ_ONLY" >> $CONFIG
 echo "COCOA_READER = $COCOA" >> $CONFIG
-fi
-
 echo

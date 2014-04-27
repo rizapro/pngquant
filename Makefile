@@ -25,7 +25,7 @@ DLL=libimagequant.dll
 DLLIMP=libimagequant_dll.a
 DLLDEF=libimagequant_dll.def
 
-ifndef LIB_ONLY
+ifndef LIBQ_ONLY
 all: $(BIN)
 endif
 
@@ -55,7 +55,7 @@ $(TARFILE): $(DISTFILES)
 	rm -rf $(TARNAME)
 	-shasum $(TARFILE)
 
-distlib: $(LIBTARFILE)
+libdist: $(LIBTARFILE)
 
 $(LIBTARFILE):
 	rm -rf $(LIBTARFILE) $(LIBTARNAME)
@@ -82,5 +82,5 @@ clean:
 config.mk:
 	./configure
 
-.PHONY: all clean dist distlib dll lib install uninstall
+.PHONY: all clean dist libdist dll lib install uninstall
 .DELETE_ON_ERROR:

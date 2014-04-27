@@ -180,7 +180,7 @@ find_library() {
             if [ -n "$SOPATH" ]; then
                 cflags "-I${HPATH%/*}"
                 lflags "-L${SOPATH%/*} -l$DYNAMICLIBNAME"
-                status "$LIBNAME" "shared ($SOPATH)"
+                status "$LIBNAME" "shared ... $SOPATH"
                 return 0
             fi
         fi
@@ -201,29 +201,27 @@ pngh_majmin() {
     echo "${MAJ}${MIN}"
 }
 
-if [[ "$OSTYPE" =~ "darwin" ]]; then
-    SOLIBSUFFIX=dylib
-else
-    SOLIBSUFFIX=so
-fi
+error() {
+    status "$1" "error ... $2"
+    echo
+    exit 1
+}
+
+echo
 
 # basic check
 if ! "$CC" -xc -std=c99 <(echo "int main(){}") -o /dev/null &> /dev/null; then
-    status "Compiler" "error ... $CC is no C compiler"
-    echo
-    exit 1
+    error "Compiler" "$CC is no C compiler"
 fi
-
-# pairs of possible *.h and lib*.so locations
-DIRS=("/usr/local/include /usr/local/lib"
-      "/usr/include /usr/lib")
 
 status "Compiler" "$CC"
 
+echo
+
 # init flags
-CFLAGS=${CFLAGS:- -O3 -fno-math-errno -funroll-loops -fomit-frame-pointer -Wall}
+CFLAGS=${CFLAGS:--O3 -fno-math-errno -funroll-loops -fomit-frame-pointer -Wall}
+LDFLAGS=${LDFLAGS:--lm lib/libimagequant.a}
 cflags "-std=c99 -I."
-lflags "-lm lib/libimagequant.a"
 
 # DEBUG
 if [ -z "$DEBUG" ]; then
@@ -272,9 +270,7 @@ if [ -n "$OPENMP" ]; then
         lflags "-fopenmp"
         status "OpenMP" "yes"
     else
-        status "OpenMP" "error ... not supported by compiler"
-        echo
-        exit 1
+        error "OpenMP" "not supported by compiler"
     fi
 else
     # Silence ICC warnings about omp pragmas when -fopenmp is not set.
@@ -284,6 +280,8 @@ else
 fi
 
 if [ -z "$LIBQ_ONLY" ]; then
+
+echo
 
 # Cocoa
 if [[ "$OSTYPE" =~ "darwin" ]]; then
@@ -295,6 +293,16 @@ if [[ "$OSTYPE" =~ "darwin" ]]; then
         status "Cocoa" "no"
     fi
 fi
+
+if [[ "$OSTYPE" =~ "darwin" ]]; then
+    SOLIBSUFFIX=dylib
+else
+    SOLIBSUFFIX=so
+fi
+
+# pairs of possible *.h and lib*.so locations
+DIRS=("/usr/local/include /usr/local/lib"
+      "/usr/include /usr/lib")
 
 # libpng
 SUCCESS=0
@@ -339,16 +347,12 @@ if [ "$SUCCESS" -eq 0 ]; then
     fi
 fi
 if [ "$SUCCESS" -eq 0 ]; then
-    status "libpng" "error ... not found"
-    echo
-    exit 1
+    error "libpng" "not found"
 fi
 
 # zlib
 if ! find_library "zlib" "z" "zlib.h" "libz.a" "libz.$SOLIBSUFFIX*"; then
-    status "zlib" "error ... not found"
-    echo
-    exit 1
+    error "zlib" "not found"
 fi
 
 # lcms2
@@ -356,15 +360,15 @@ if [ -n "$LCMS2" ]; then
     if find_library "lcms2" "lcms2" "lcms2.h" "liblcms2.a" "liblcms2.$SOLIBSUFFIX*"; then
         cflags "-DUSE_LCMS=1"
     else
-        status "lcms2" "error ... not found"
-        echo
-        exit 1
+        error "lcms2" "not found"
     fi
 else
     status "lcms2" "no"
 fi
 
 fi # LIBQ_ONLY
+
+echo
 
 # As of GCC 4.5, 387 fp math is significantly slower in C99 mode without this.
 conditional_cflags "-fexcess-precision=fast"

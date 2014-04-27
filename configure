@@ -212,12 +212,12 @@ echo
 # libpng
 SUCCESS=0
 # try static in current directory first
-PNGH=$(find_h "." "png.h")
+PNGH=$(find_h . "png.h")
 if [ -n "$PNGH" ]; then
     PNGH_STRING=$(pngh_string "$PNGH")
     PNGH_MAJMIN=$(pngh_majmin "$PNGH")
-    if [ -n "$PNGH_STRING" -a -n "$PNGH_MAJMIN" ]; then
-        LIBPNGA=$(find_f "." "libpng${PNGH_MAJMIN}.a")
+    if [[ -n "$PNGH_STRING" && -n "$PNGH_MAJMIN" ]]; then
+        LIBPNGA=$(find_f . "libpng${PNGH_MAJMIN}.a")
         if [ -n "$LIBPNGA" ]; then
             cflags "-I${PNGH%/*}"
             lflags "${LIBPNGA}"
@@ -243,7 +243,7 @@ if [ "$SUCCESS" -eq 0 ]; then
             if [ -n "$PNGH" ]; then
                 PNGH_STRING=$(pngh_string "$PNGH")
                 PNGH_MAJMIN=$(pngh_majmin "$PNGH")
-                if [ -n "$PNGH_STRING" -a -n "$PNGH_MAJMIN" ]; then
+                if [[ -n "$PNGH_STRING" && -n "$PNGH_MAJMIN" ]]; then
                     LIBPNGSO=$(find_f "${DIR[1]}" "libpng${PNGH_MAJMIN}.so*")
                     if [ -n "$LIBPNGSO" ]; then
                         cflags "-I${PNGH%/*}"
@@ -266,9 +266,9 @@ fi
 # zlib
 SUCCESS=0
 # try static in current directory first
-ZLIBH=$(find_h "." "zlib.h")
+ZLIBH=$(find_h . "zlib.h")
 if [ -n "$ZLIBH" ]; then
-    LIBZA=$(find_f "." "libz.a")
+    LIBZA=$(find_f . "libz.a")
     if [ -n "$LIBZA" ]; then
         cflags "-I${ZLIBH%/*}"
         lflags "${LIBZA}"
@@ -312,9 +312,9 @@ fi
 if [ -n "$LCMS2" ]; then
     SUCCESS=0
     # try static in current directory first
-    LCMS2H=$(find_h "." "lcms2.h")
+    LCMS2H=$(find_h . "lcms2.h")
     if [ -n "$LCMS2H" ]; then
-        LIBLCMS2A=$(find_f "." "liblcms2.a")
+        LIBLCMS2A=$(find_f . "liblcms2.a")
         if [ -n "$LIBLCMS2A" ]; then
             cflags "-I${LCMS2H%/*}"
             lflags "${LIBLCMS2A}"

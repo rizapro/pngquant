@@ -13,6 +13,9 @@ LIBQ_ONLY=
 EXTRA_CFLAGS=
 EXTRA_LDFLAGS=
 
+# make gcc default compiler unless CC is already set
+CC=${CC:-gcc}
+
 help() {
     printf "%4s %s\n" "" "$1"
 }
@@ -129,13 +132,6 @@ pngh_majmin() {
     local MIN=$(grep -m1 "define PNG_LIBPNG_VER_MINOR" "$1" | grep -Eo "[0-9]+")
     echo "${MAJ}${MIN}"
 }
-
-echo
-
-# make gcc default compiler unless CC is already set
-if [ -z "$CC" ]; then
-    CC=gcc
-fi
 
 # basic check
 if ! "$CC" -xc -std=c99 <(echo "int main(){}") -o /dev/null &> /dev/null; then
@@ -383,8 +379,10 @@ conditional_cflags "-fexcess-precision=fast"
 # profound effect. With ICC, code is highly optimized for a specific target
 # (Intel) CPU, and generic code can be quite slow, so this flag is essential.
 conditional_cflags "-xHOST"
+
 # Disables some fp optimizations and enforces fp precision as set in the code.
 conditional_cflags "-fp-model source"
+
 # Silence a gold linker warning about string misalignment.
 conditional_cflags "-falign-stack=maintain-16-byte"
 

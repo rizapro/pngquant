@@ -82,8 +82,10 @@ clean:
 distclean: clean
 	rm -rf config.mk
 
+ifeq ($(filter %clean, $(MAKECMDGOALS)), )
 config.mk:
 	./configure
+endif
 
 .PHONY: all clean dist distclean libdist dll lib install uninstall
 .DELETE_ON_ERROR:

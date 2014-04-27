@@ -216,8 +216,6 @@ fi
 
 status "Compiler" "$CC"
 
-echo
-
 # init flags
 CFLAGS=${CFLAGS:--O3 -fno-math-errno -funroll-loops -fomit-frame-pointer -Wall}
 LDFLAGS=${LDFLAGS:--lm lib/libimagequant.a}
@@ -280,8 +278,6 @@ else
 fi
 
 if [ -z "$LIBQ_ONLY" ]; then
-
-echo
 
 # Cocoa
 if [[ "$OSTYPE" =~ "darwin" ]]; then

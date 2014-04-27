@@ -45,6 +45,12 @@ fi
     CC=*)
         CC=${i#*=}
         ;;
+    CFLAGS=*)
+        CFLAGS=${i#*=}
+        ;;
+    LDFLAGS=*)
+        LDFLAGS=${i#*=}
+        ;;
     --enable-debug)
         DEBUG=1
         ;;
@@ -214,8 +220,9 @@ DIRS=("/usr/local/include /usr/local/lib"
 status "Compiler" "$CC"
 
 # init flags
-CFLAGS="-std=c99 -O3 -fno-math-errno -funroll-loops -fomit-frame-pointer -Wall -Wno-unknown-pragmas -I."
-LDFLAGS="-lm lib/libimagequant.a"
+CFLAGS=${CFLAGS:- -O3 -fno-math-errno -funroll-loops -fomit-frame-pointer -Wall -I.}
+CFLAGS+=" -std=c99"
+LDFLAGS+="-lm lib/libimagequant.a"
 
 # DEBUG
 if [ -z "$DEBUG" ]; then
@@ -270,6 +277,7 @@ if [ -n "$OPENMP" ]; then
 else
     # Silence ICC warnings about omp pragmas when -fopenmp is not set.
     conditional_cflags "-wd3180"
+    conditional_cflags "-Wno-unknown-pragmas"
     status "OpenMP" "no"
 fi
 

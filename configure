@@ -157,9 +157,10 @@ find_static() {
 
 find_library() {
     LIBNAME=$1
-    HEADERPATTERN=$2
-    STATICPATTERN=$3
-    DYNAMICPATTERN=$4
+    DYNAMICLIBNAME=$2
+    HEADERPATTERN=$3
+    STATICPATTERN=$4
+    DYNAMICPATTERN=$5
 
     # try static in current directory first
     if find_static "$LIBNAME" "$HEADERPATTERN" "$STATICPATTERN"; then
@@ -178,7 +179,7 @@ find_library() {
             SOPATH=$(find_f "${DIR[1]}" "$DYNAMICPATTERN")
             if [ -n "$SOPATH" ]; then
                 cflags "-I${HPATH%/*}"
-                lflags "-L${SOPATH%/*} -l$LIBNAME"
+                lflags "-L${SOPATH%/*} -l$DYNAMICLIBNAME"
                 status "$LIBNAME" "shared ($SOPATH)"
                 return 0
             fi
@@ -343,7 +344,7 @@ if [ "$SUCCESS" -eq 0 ]; then
 fi
 
 # zlib
-if ! find_library "zlib" "zlib.h" "libz.a" "libz.$SOLIBSUFFIX*"; then
+if ! find_library "zlib" "z" "zlib.h" "libz.a" "libz.$SOLIBSUFFIX*"; then
     status "zlib" "error ... not found"
     echo
     exit 1
@@ -351,7 +352,7 @@ fi
 
 # lcms2
 if [ -n "$LCMS2" ]; then
-    if find_library "lcms2" "lcms2.h" "liblcms2.a" "liblcms2.$SOLIBSUFFIX*"; then
+    if find_library "lcms2" "lcms2" "lcms2.h" "liblcms2.a" "liblcms2.$SOLIBSUFFIX*"; then
         cflags "-DUSE_LCMS=1"
     else
         status "lcms2" "error ... not found"

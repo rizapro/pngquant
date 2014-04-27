@@ -169,7 +169,7 @@ if [ -n "$SSE" ]; then
     fi
 else
     if [[ "$(uname -m)" =~ (amd|x86_)64 ||
-          "$(grep -E -m1 "^flags" /proc/cpuinfo)" =~ sse ]]; then
+          "$(grep -E -m1 "^flags" /proc/cpuinfo)" =~ "sse" ]]; then
         SSE=1
         status "SSE" "auto (yes)"
     else
@@ -190,9 +190,18 @@ fi
 
 # OpenMP
 if [ -n "$OPENMP" ]; then
-    cflags "-fopenmp"
-    lflags "-fopenmp"
-    status "OpenMP" "yes"
+    if [[ "$("$CC" -xc -E -fopenmp <(echo -e \
+          "#ifdef _OPENMP
+           #include <omp.h>
+           #endif") 2>&1)" =~ "omp_get_thread_num" ]]; then
+        cflags "-fopenmp"
+        lflags "-fopenmp"
+        status "OpenMP" "yes"
+    else
+        status "OpenMP" "error ... not supported by compiler"
+        echo
+        exit 1
+    fi
 else
     # Silence ICC warnings about omp pragmas when -fopenmp is not set.
     conditional_cflags "-wd3180"

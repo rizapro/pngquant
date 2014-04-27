@@ -126,9 +126,59 @@ find_pkgconfig() {
         cflags "$(pkg-config --cflags "$LIBNAME")"
         lflags "$(pkg-config --libs "$LIBNAME")"
         status "$LIBNAME" "shared ($(pkg-config --modversion "$LIBNAME"))"
-    else
-        false
+        return 0
     fi
+    return 1
+}
+
+find_static() {
+    LIBNAME=$1
+    HEADERPATTERN=$2
+    STATICPATTERN=$3
+
+    HPATH=$(find_h . "$HEADERPATTERN")
+    if [ -n "$HPATH" ]; then
+        APATH=$(find_f . "$STATICPATTERN")
+        if [ -n "$APATH" ]; then
+            cflags "-I${HPATH%/*}"
+            lflags "${APATH}"
+            status "$LIBNAME" "static"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+find_library() {
+    LIBNAME=$1
+    HEADERPATTERN=$2
+    STATICPATTERN=$3
+    DYNAMICPATTERN=$4
+
+    # try static in current directory first
+    if find_static "$LIBNAME" "$HEADERPATTERN" "$STATICPATTERN"; then
+        return 0;
+    fi
+
+    # try shared
+    if find_pkgconfig "$LIBNAME"; then
+        return 0
+    fi
+
+    for i in "${DIRS[@]}"; do
+        DIR=($i)
+        HPATH=$(find_h "${DIR[0]}" "$HEADERPATTERN")
+        if [ -n "$HPATH" ]; then
+            SOPATH=$(find_f "${DIR[1]}" "$DYNAMICPATTERN")
+            if [ -n "$SOPATH" ]; then
+                cflags "-I${HPATH%/*}"
+                lflags "-L${SOPATH%/*} -l$LIBNAME"
+                status "$LIBNAME" "shared ($SOPATH)"
+                return 0
+            fi
+        fi
+    done
+    return 1
 }
 
 # returns full png.h version string
@@ -285,39 +335,7 @@ if [ "$SUCCESS" -eq 0 ]; then
 fi
 
 # zlib
-SUCCESS=0
-# try static in current directory first
-ZLIBH=$(find_h . "zlib.h")
-if [ -n "$ZLIBH" ]; then
-    LIBZA=$(find_f . "libz.a")
-    if [ -n "$LIBZA" ]; then
-        cflags "-I${ZLIBH%/*}"
-        lflags "${LIBZA}"
-        status "zlib" "static"
-        SUCCESS=1
-    fi
-fi
-# try shared
-if [ "$SUCCESS" -eq 0 ]; then
-    if find_pkgconfig zlib; then
-        SUCCESS=1
-    else
-        for i in "${DIRS[@]}"; do
-            DIR=($i)
-            ZLIBH=$(find_h "${DIR[0]}" "zlib.h")
-            if [ -n "$ZLIBH" ]; then
-                LIBZSO=$(find_f "${DIR[1]}" "libz.$SOLIBSUFFIX*")
-                if [ -n "$LIBZSO" ]; then
-                    cflags "-I${ZLIBH%/*}"
-                    lflags "-L${LIBZSO%/*} -lz"
-                    status "zlib" "shared"
-                    SUCCESS=1
-                fi
-            fi
-        done
-    fi
-fi
-if [ "$SUCCESS" -eq 0 ]; then
+if ! find_library "zlib" "zlib.h" "libz.a" "libz.$SOLIBSUFFIX*"; then
     status "zlib" "error ... not found"
     echo
     exit 1
@@ -325,44 +343,12 @@ fi
 
 # lcms2
 if [ -n "$LCMS2" ]; then
-    SUCCESS=0
-    # try static in current directory first
-    LCMS2H=$(find_h . "lcms2.h")
-    if [ -n "$LCMS2H" ]; then
-        LIBLCMS2A=$(find_f . "liblcms2.a")
-        if [ -n "$LIBLCMS2A" ]; then
-            cflags "-I${LCMS2H%/*}"
-            lflags "${LIBLCMS2A}"
-            status "lcms2" "static"
-            SUCCESS=1
-        fi
-    fi
-    # try shared
-    if [ "$SUCCESS" -eq 0 ]; then
-        if find_pkgconfig lcms2; then
-            SUCCESS=1
-        else
-            for i in "${DIRS[@]}"; do
-                DIR=($i)
-                LCMS2H=$(find_h "${DIR[0]}" "lcms2.h")
-                if [ -n "$LCMS2H" ]; then
-                    LIBLCMS2SO=$(find_f "${DIR[1]}" "liblcms2.$SOLIBSUFFIX*")
-                    if [ -n "$LIBLCMS2SO" ]; then
-                        cflags "-I${LCMS2H%/*}"
-                        lflags "-L${LIBLCMS2SO%/*} -llcms2"
-                        status "lcms2" "shared"
-                        SUCCESS=1
-                    fi
-                fi
-            done
-        fi
-    fi
-    if [ "$SUCCESS" -eq 0 ]; then
+    if find_library "lcms2" "lcms2.h" "liblcms2.a" "liblcms2.$SOLIBSUFFIX*"; then
+        cflags "-DUSE_LCMS=1"
+    else
         status "lcms2" "error ... not found"
         echo
         exit 1
-    else
-        cflags "-DUSE_LCMS=1"
     fi
 else
     status "lcms2" "no"

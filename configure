@@ -120,6 +120,17 @@ find_h() {
     echo $(find "$1" -type f -name "$2" -print -quit 2> /dev/null)
 }
 
+find_pkgconfig() {
+    LIBNAME=$1
+    if pkg-config --exists "$LIBNAME" &> /dev/null; then
+        cflags "$(pkg-config --cflags "$LIBNAME")"
+        lflags "$(pkg-config --libs "$LIBNAME")"
+        status "$LIBNAME" "shared ($(pkg-config --modversion "$LIBNAME"))"
+    else
+        false
+    fi
+}
+
 # returns full png.h version string
 pngh_string() {
     echo "$(grep -m1 "define PNG_LIBPNG_VER_STRING" "$1" | \
@@ -153,8 +164,6 @@ if [ -z "$DEBUG" ]; then
 else
     status "Debug" "yes"
 fi
-
-echo
 
 # SSE
 if [ -n "$SSE" ]; then
@@ -217,8 +226,6 @@ if [[ "$OSTYPE" =~ "darwin" ]]; then
     fi
 fi
 
-echo
-
 # libpng
 SUCCESS=0
 # try static in current directory first
@@ -238,10 +245,7 @@ if [ -n "$PNGH" ]; then
 fi
 # try shared
 if [ "$SUCCESS" -eq 0 ]; then
-    if pkg-config --exists libpng &> /dev/null; then
-        cflags "$(pkg-config --cflags libpng)"
-        lflags "$(pkg-config --libs libpng)"
-        status "libpng" "shared ($(pkg-config --modversion libpng))"
+    if find_pkgconfig libpng; then
         SUCCESS=1
     else
         # pairs of possible png.h and libpng.so locations
@@ -288,10 +292,7 @@ if [ -n "$ZLIBH" ]; then
 fi
 # try shared
 if [ "$SUCCESS" -eq 0 ]; then
-    if pkg-config --exists zlib &> /dev/null; then
-        cflags "$(pkg-config --cflags zlib)"
-        lflags "$(pkg-config --libs zlib)"
-        status "zlib" "shared ($(pkg-config --modversion zlib))"
+    if find_pkgconfig zlib; then
         SUCCESS=1
     else
         # pairs of possible zlib.h and libz.so locations
@@ -334,10 +335,7 @@ if [ -n "$LCMS2" ]; then
     fi
     # try shared
     if [ "$SUCCESS" -eq 0 ]; then
-        if pkg-config --exists lcms2 &> /dev/null; then
-            cflags "$(pkg-config --cflags lcms2)"
-            lflags "$(pkg-config --libs lcms2)"
-            status "lcms2" "shared ($(pkg-config --modversion lcms2))"
+        if find_pkgconfig lcms2; then
             SUCCESS=1
         else
             # pairs of possible lcms2.h and liblcms2.so locations

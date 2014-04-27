@@ -80,7 +80,7 @@ clean:
 	rm -f $(BIN) $(OBJS) $(COCOA_OBJS) $(STATICLIB) $(LIBOBJS) $(TARFILE) $(LIBTARFILE) $(DLL) $(DLLIMP) $(DLLDEF)
 
 distclean: clean
-	rm -rf config.mk
+	rm -f config.mk
 
 ifeq ($(filter %clean %dist, $(MAKECMDGOALS)), )
 config.mk:

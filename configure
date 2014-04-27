@@ -218,8 +218,8 @@ status "Compiler" "$CC"
 
 # init flags
 CFLAGS=${CFLAGS:--O3 -fno-math-errno -funroll-loops -fomit-frame-pointer -Wall}
-LDFLAGS=${LDFLAGS:--lm lib/libimagequant.a}
 cflags "-std=c99 -I."
+lflags "-lm lib/libimagequant.a"
 
 # DEBUG
 if [ -z "$DEBUG" ]; then

@@ -168,8 +168,8 @@ if [ -n "$SSE" ]; then
         status "SSE" "no"
     fi
 else
-    if [[ -n "$(grep -E "(amd|x86_)64" <(uname -m))" ||
-          -n "$(grep -E "^flags" /proc/cpuinfo | grep sse)" ]]; then
+    if [[ "$(uname -m)" =~ (amd|x86_)64 ||
+          "$(grep -E -m1 "^flags" /proc/cpuinfo)" =~ sse ]]; then
         SSE=1
         status "SSE" "auto (yes)"
     else

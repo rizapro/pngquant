@@ -162,25 +162,30 @@ echo
 
 # SSE
 if [ -n "$SSE" ]; then
-    cflags "-DUSE_SSE=$SSE"
     if [ "$SSE" -eq 1 ]; then
-        cflags "-msse"
-        # Silence a later ICC warning due to -msse working slightly different.
-        conditional_cflags "-wd10121"
-        # Must be set explicitly for GCC on x86_32. Other compilers imply it.
-        conditional_cflags "-mfpmath=sse" "-msse"
         status "SSE" "yes"
     else
         status "SSE" "no"
     fi
 else
-    if [[ "$(uname -m)" =~ "x86_64" ]]; then
-        cflags "-DUSE_SSE=1"
+    if [[ -n "$(grep -E "(amd|x86_)64" <(uname -m))" ||
+          -n "$(grep -E "^flags" /proc/cpuinfo | grep sse)" ]]; then
+        SSE=1
         status "SSE" "auto (yes)"
     else
-        cflags "-DUSE_SSE=0"
+        SSE=0
         status "SSE" "auto (no)"
     fi
+fi
+if [ "$SSE" -eq 1 ]; then
+    cflags "-DUSE_SSE=1"
+    cflags "-msse"
+    # Silence a later ICC warning due to -msse working slightly different.
+    conditional_cflags "-wd10121"
+    # Must be set explicitly for GCC on x86_32. Other compilers imply it.
+    conditional_cflags "-mfpmath=sse" "-msse"
+else
+    cflags "-DUSE_SSE=0"
 fi
 
 # OpenMP

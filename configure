@@ -99,7 +99,7 @@ lflags() {
 }
 
 status() {
-    printf "%12s: %s\n" "$1" "$2"
+    printf "%10s: %s\n" "$1" "$2"
 }
 
 # Append to CFLAGS if compiler supports flag, with optional prerequisite.

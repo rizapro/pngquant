@@ -220,7 +220,7 @@ typedef struct {
         unsigned int sort_value;
         unsigned char likely_colormap_index;
     } tmp;
-} hist_item;
+} SSE_ALIGN hist_item;
 
 typedef struct {
     hist_item *achv;
@@ -233,15 +233,19 @@ typedef struct {
 typedef struct {
     f_pixel acolor;
     float popularity;
-} colormap_item;
+} SSE_ALIGN colormap_item;
 
 typedef struct colormap {
-    unsigned int colors;
     void* (*malloc)(size_t);
     void (*free)(void*);
     struct colormap *subset_palette;
+    void *_padding1; /* ensure palette[] is 16-byte aligned */
+    unsigned int _padding2;
+    unsigned int _padding3;
+    unsigned int _padding4;
+    unsigned int colors;
     colormap_item palette[];
-} colormap;
+} SSE_ALIGN colormap;
 
 struct acolorhist_arr_item {
     union rgba_as_int color;

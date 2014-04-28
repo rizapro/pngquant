@@ -17,14 +17,14 @@ struct head {
     unsigned int num_candidates;
     f_pixel *candidates_color;
     unsigned short *candidates_index;
-};
+} SSE_ALIGN;
 
 struct nearest_map {
+    mempool mempool;
     const colormap *map;
     float nearest_other_color_dist[256];
-    mempool mempool;
     struct head heads[];
-};
+} SSE_ALIGN;
 
 static unsigned int find_slow(const f_pixel px, const colormap *map)
 {
